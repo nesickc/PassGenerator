@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(MyPasswordManager LANGUAGES CXX)
+project(PassGen LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -128,9 +128,29 @@ else()
 endif()
 
 # -----------------------
+# Fetch glad
+# -----------------------
+
+FetchContent_Declare(
+  glad
+  URL https://github.com/Dav1dde/glad/archive/refs/tags/v2.0.8.zip
+)
+FetchContent_MakeAvailable(glad)
+
+# Build glad as a static library from its C file
+add_library(gladlib STATIC
+  ${glad_SOURCE_DIR}/src/glad.c
+)
+
+# Add its include directory
+target_include_directories(gladlib PUBLIC
+  ${glad_SOURCE_DIR}/include
+)
+
+# -----------------------
 # Create our executable
 # -----------------------
-add_executable(MyPasswordManager
+add_executable(PassGen
   src/main.cpp
   src/UI.cpp
   src/UI.hpp
@@ -140,9 +160,9 @@ add_executable(MyPasswordManager
   src/Application.hpp
 )
 
-target_compile_definitions(MyPasswordManager PRIVATE SODIUM_STATIC)
+target_compile_definitions(PassGen PRIVATE SODIUM_STATIC)
 
 # Ensure libsodium is built first
-add_dependencies(MyPasswordManager libsodium-project)
-target_link_libraries(MyPasswordManager PRIVATE libsodium imgui)
-target_include_directories(MyPasswordManager PRIVATE ${PROJECT_SOURCE_DIR}/src)
+add_dependencies(PassGen libsodium-project)
+target_link_libraries(PassGen PRIVATE libsodium imgui gladlib)
+target_include_directories(PassGen PRIVATE ${PROJECT_SOURCE_DIR}/src)
