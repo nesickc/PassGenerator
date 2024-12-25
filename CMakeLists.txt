@@ -14,6 +14,21 @@ include(ExternalProject)
 set(EXTERNAL_INSTALL_DIR "${CMAKE_BINARY_DIR}/_deps")
 
 # -----------------------
+# Fetch glad
+# -----------------------
+FetchContent_Declare(
+    glad
+    GIT_REPOSITORY https://github.com/Dav1dde/glad.git
+    GIT_TAG        658f48e72aee3c6582e80b05ac0f8787a64fe6bb #v2.0.6
+    GIT_PROGRESS   TRUE
+    SOURCE_SUBDIR  cmake
+)
+
+FetchContent_MakeAvailable(glad)
+
+glad_add_library(glad_gl_core_43 STATIC REPRODUCIBLE LOADER API gl:core=4.3)
+
+# -----------------------
 # Fetch libsodium
 # -----------------------
 FetchContent_Declare(
@@ -128,26 +143,6 @@ else()
 endif()
 
 # -----------------------
-# Fetch glad
-# -----------------------
-
-FetchContent_Declare(
-  glad
-  URL https://github.com/Dav1dde/glad/archive/refs/tags/v2.0.8.zip
-)
-FetchContent_MakeAvailable(glad)
-
-# Build glad as a static library from its C file
-add_library(gladlib STATIC
-  ${glad_SOURCE_DIR}/src/glad.c
-)
-
-# Add its include directory
-target_include_directories(gladlib PUBLIC
-  ${glad_SOURCE_DIR}/include
-)
-
-# -----------------------
 # Create our executable
 # -----------------------
 add_executable(PassGen
@@ -164,5 +159,5 @@ target_compile_definitions(PassGen PRIVATE SODIUM_STATIC)
 
 # Ensure libsodium is built first
 add_dependencies(PassGen libsodium-project)
-target_link_libraries(PassGen PRIVATE libsodium imgui gladlib)
+target_link_libraries(PassGen PRIVATE libsodium imgui glad_gl_core_43)
 target_include_directories(PassGen PRIVATE ${PROJECT_SOURCE_DIR}/src)
