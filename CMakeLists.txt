@@ -1,163 +1,77 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.21)
 project(PassGen LANGUAGES CXX)
 
+# Optionally specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+#
+# 1) Tell CMake to use the vcpkg toolchain.
+#    Usually you pass this as a command-line argument like:
+#      cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg.cmake
+#
+#    But you can also hard-code it here if you prefer:
+#
+# set(CMAKE_TOOLCHAIN_FILE "/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake")
 
-include(FetchContent)
-include(ExternalProject)
+#
+# 2) Find the libraries via CMake's find_package calls.
+#    Because we are using vcpkg manifest mode, these libraries become available
+#    as Config packages (e.g., "imguiConfig.cmake", "glfw3Config.cmake", etc.).
+#
 
-# Set a directory where external projects are built and installed
-set(EXTERNAL_INSTALL_DIR "${CMAKE_BINARY_DIR}/_deps")
+# Glad
+find_package(glad CONFIG REQUIRED)
 
-# -----------------------
-# Fetch glad
-# -----------------------
-FetchContent_Declare(
-    glad
-    GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-    GIT_TAG        658f48e72aee3c6582e80b05ac0f8787a64fe6bb #v2.0.6
-    GIT_PROGRESS   TRUE
-    SOURCE_SUBDIR  cmake
+# libsodium
+# vcpkg’s libsodium port provides the target: libsodium::libsodium
+find_package(unofficial-sodium CONFIG REQUIRED)
+
+# ImGui
+# vcpkg’s imgui port provides the target: imgui::imgui
+find_package(imgui CONFIG REQUIRED)
+
+# GLFW
+# vcpkg’s glfw3 port provides the target: glfw
+find_package(glfw3 CONFIG REQUIRED)
+
+# GLM
+# vcpkg’s glm port typically provides the target: glm::glm
+find_package(glm CONFIG REQUIRED)
+
+#
+# 3) Add your executable and link the libraries.
+#
+
+set(HEADERS
+    src/UI.hpp
+    src/Application.hpp
+    src/PassGenerator.hpp
 )
 
-FetchContent_MakeAvailable(glad)
-
-glad_add_library(glad_gl_core_43 STATIC REPRODUCIBLE LOADER API gl:core=4.3)
-
-# -----------------------
-# Fetch libsodium
-# -----------------------
-FetchContent_Declare(
-  libsodium
-  # Use URL
-  # URL https://download.libsodium.org/libsodium/releases/libsodium-1.0.20.tar.gz
-  # Or use the Git repo:
-  GIT_REPOSITORY https://github.com/jedisct1/libsodium.git
-  GIT_TAG        stable
+set(SOURCES
+    src/main.cpp
+    src/UI.cpp
+    src/Application.cpp
+    src/PassGenerator.cpp
 )
 
-FetchContent_GetProperties(libsodium)
-if(NOT libsodium_POPULATED)
-  FetchContent_Populate(libsodium)
 
-  if(WIN32)
-    # On Windows, use the Visual Studio project directly
-    # Adjust the Platform and Configuration if needed (x64, Win32, Debug, Release)
-    set(LIBSODIUM_MSVC_DIR "${libsodium_SOURCE_DIR}/builds/msvc/vs2022/libsodium")
+add_executable(passGen ${HEADERS} ${SOURCES})
 
-    ExternalProject_Add(libsodium-project
-      SOURCE_DIR ${LIBSODIUM_MSVC_DIR}
-      CONFIGURE_COMMAND ""
-      BUILD_COMMAND msbuild libsodium.vcxproj /p:Configuration=ReleaseLIB /p:Platform=x64
-      INSTALL_COMMAND ""
-      BUILD_IN_SOURCE 1
-    )
+# Link all the libraries you need:
+# - glad::glad
+# - libsodium::libsodium
+# - imgui::imgui
+# - glfw
+# - glm::glm
 
-    # For linking, you need to know where the built .lib will be placed.
-    # Should be in ${libsodium_SOURCE_DIR}/bin/x64/Release/ (adjust if needed).
-    # After build, you could copy or reference directly:
-    set(LIBSODIUM_LIB "${libsodium_SOURCE_DIR}/bin/x64/Release/v143/static/libsodium.lib")
-    set(LIBSODIUM_INCLUDE_DIR "${libsodium_SOURCE_DIR}/src/libsodium/include")
-
-    add_library(libsodium STATIC IMPORTED)
-    add_dependencies(libsodium libsodium-project)
-    set_target_properties(libsodium PROPERTIES
-      IMPORTED_LOCATION "${LIBSODIUM_LIB}"
-      INTERFACE_INCLUDE_DIRECTORIES "${LIBSODIUM_INCLUDE_DIR}"
-    )
-
-  else()
-    # On Unix-like systems, run configure and make
-    ExternalProject_Add(libsodium-project
-      SOURCE_DIR ${libsodium_SOURCE_DIR}
-      PREFIX ${EXTERNAL_INSTALL_DIR}/libsodium
-      CONFIGURE_COMMAND ./configure --prefix=${EXTERNAL_INSTALL_DIR}/libsodium --disable-shared
-      BUILD_COMMAND make
-      INSTALL_COMMAND make install
-      BUILD_IN_SOURCE 1
-    )
-
-    add_library(libsodium STATIC IMPORTED)
-    add_dependencies(libsodium libsodium-project)
-    set_target_properties(libsodium PROPERTIES
-      IMPORTED_LOCATION "${EXTERNAL_INSTALL_DIR}/libsodium/lib/libsodium.a"
-      INTERFACE_INCLUDE_DIRECTORIES "${EXTERNAL_INSTALL_DIR}/libsodium/include"
-    )
-  endif()
-endif()
-
-# -----------------------
-# Fetch ImGui + GLFW
-# -----------------------
-FetchContent_Declare(
-  imgui
-  GIT_REPOSITORY https://github.com/ocornut/imgui.git
-  GIT_TAG        master
-)
-FetchContent_MakeAvailable(imgui)
-
-set(IMGUI_SRC
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+target_link_libraries(passGen
+    PRIVATE
+        glad::glad
+        unofficial-sodium::sodium
+        imgui::imgui
+        glfw
+        glm::glm
 )
 
-set(IMGUI_HDR
-    ${imgui_SOURCE_DIR}/imgui.h
-    ${imgui_SOURCE_DIR}/imconfig.h
-    ${imgui_SOURCE_DIR}/imgui_internal.h
-    ${imgui_SOURCE_DIR}/imstb_rectpack.h
-    ${imgui_SOURCE_DIR}/imstb_textedit.h
-    ${imgui_SOURCE_DIR}/imstb_truetype.h
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h
-)
-
-add_library(imgui STATIC ${IMGUI_SRC} ${IMGUI_HDR})
-target_include_directories(imgui PUBLIC
-  ${imgui_SOURCE_DIR}
-  ${imgui_SOURCE_DIR}/backends
-)
-
-FetchContent_Declare(
-  glfw
-  GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG        master
-)
-FetchContent_MakeAvailable(glfw)
-
-target_link_libraries(imgui PUBLIC glfw)
-
-if(WIN32)
-    target_link_libraries(imgui PUBLIC opengl32)
-else()
-    find_package(OpenGL REQUIRED)
-    target_link_libraries(imgui PUBLIC OpenGL::GL dl)
-endif()
-
-# -----------------------
-# Create our executable
-# -----------------------
-add_executable(PassGen
-  src/main.cpp
-  src/UI.cpp
-  src/UI.hpp
-  src/PassGenerator.cpp
-  src/PassGenerator.hpp
-  src/Application.cpp
-  src/Application.hpp
-)
-
-target_compile_definitions(PassGen PRIVATE SODIUM_STATIC)
-
-# Ensure libsodium is built first
-add_dependencies(PassGen libsodium-project)
-target_link_libraries(PassGen PRIVATE libsodium imgui glad_gl_core_43)
-target_include_directories(PassGen PRIVATE ${PROJECT_SOURCE_DIR}/src)

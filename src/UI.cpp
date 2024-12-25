@@ -123,11 +123,12 @@ void UI::ShutdownGLFW()
 
 void UI::InitOpenGL()
 {
-    int version = gladLoadGL( glfwGetProcAddress );
+    int version = gladLoadGL();
     if ( version == 0 )
     {
         printf( "Failed to initialize OpenGL context\n" );
-        return -1;
+        throw std::runtime_error( "Failed to initialize OpenGL context" );
+        return;
     }
     glClearColor( 0.0f, 0.0f, 0.0f, 1.0f ); // for black background
 }

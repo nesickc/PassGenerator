@@ -1,0 +1,17 @@
+{
+  "name": "pass-gen",
+  "version": "0.1.0",
+  "dependencies": [
+    "glad",
+    "libsodium",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "opengl3-binding"
+      ]
+    },
+    "glfw3",
+    "glm"
+  ]
+}
