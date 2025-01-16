@@ -47,6 +47,7 @@ set(HEADERS
     src/UI.hpp
     src/Application.hpp
     src/PassGenerator.hpp
+    src/PlatformManager.hpp
 )
 
 set(SOURCES
@@ -54,6 +55,7 @@ set(SOURCES
     src/UI.cpp
     src/Application.cpp
     src/PassGenerator.cpp
+    src/PlatformManager.cpp
 )
 
 

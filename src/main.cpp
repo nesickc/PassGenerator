@@ -1,16 +1,13 @@
-#include "PassGenerator.hpp"
 #include <iostream>
+
+#include "PassGenerator.hpp"
+#include "Application.hpp"
+
 
 int main()
 {
-    PassGenerator passGen(
-        "random-ass-seed-phrase"
-    );
-
-    auto generatedPassword = passGen.GeneratePassword( "Facebook" );
-
-    std::cout << "Generated password is:" << generatedPassword << std::endl;
-
+    Application app;
+    app.run();
 
     return 0;
 }

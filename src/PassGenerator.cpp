@@ -4,23 +4,12 @@
 #include <stdexcept>
 
 PassGenerator::PassGenerator( std::string seed ) :
-    m_seed( seed )
+    m_key( GenerateKey( seed ) ),
+    m_platformManager( m_key )
 {
-    m_key.resize( KEY_SIZE );
-
-    // Hash the password using Argon2id
-    int res = crypto_pwhash(
-        m_key.data(), m_key.size(),
-        m_seed.c_str(), m_seed.size(),
-        reinterpret_cast<const unsigned char*>( m_salt.c_str() ),
-        crypto_pwhash_OPSLIMIT_SENSITIVE,  // Operational cost
-        crypto_pwhash_MEMLIMIT_SENSITIVE,  // Memory cost
-        crypto_pwhash_ALG_ARGON2ID13       // Argon2id variant
-    );
-
-    if (res != 0 )
+    if ( sodium_init() == -1 )
     {
-        throw std::runtime_error( "Password hashing failed" );
+        throw std::runtime_error( "Sodium init problem" );
     }
 }
 
@@ -54,5 +43,30 @@ std::string PassGenerator::GeneratePassword( std::string targetName )
         password.push_back( alphabet[alphabetIndex]);
     }
 
+    m_platformManager.AddPlatform( targetName );
+
     return password;
+}
+
+std::vector<unsigned char> PassGenerator::GenerateKey( std::string seed )
+{
+    std::vector<unsigned char> key;
+    key.resize( KEY_SIZE );
+
+    // Hash the password using Argon2id
+    int res = crypto_pwhash(
+        key.data(), key.size(),
+        seed.c_str(), seed.size(),
+        reinterpret_cast<const unsigned char*>(m_salt.c_str()),
+        crypto_pwhash_OPSLIMIT_SENSITIVE,  // Operational cost
+        crypto_pwhash_MEMLIMIT_SENSITIVE,  // Memory cost
+        crypto_pwhash_ALG_ARGON2ID13       // Argon2id variant
+    );
+
+    if ( res != 0 )
+    {
+        throw std::runtime_error( "Password hashing failed" );
+    }
+
+    return key;
 }

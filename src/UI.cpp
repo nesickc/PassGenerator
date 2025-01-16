@@ -23,7 +23,9 @@ void UI::Render()
 {
     MainUIBegin();
 
-    RenderImguiDemoWindow();
+    RenderControls();
+
+    //RenderImguiDemoWindow();
 
     MainUIEnd();
 }
@@ -44,7 +46,7 @@ void UI::MainUIBegin()
         {
             if ( ImGui::MenuItem( "Open..", "Ctrl+O" ) ) { /* Do stuff */ }
             if ( ImGui::MenuItem( "Save", "Ctrl+S" ) ) { /* Do stuff */ }
-            if ( ImGui::MenuItem( "Close", "Ctrl+W" ) ) { m_closing = false; }
+            if ( ImGui::MenuItem( "Close", "Ctrl+W" ) ) { m_closing = true; }
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -74,6 +76,109 @@ void UI::RenderImguiDemoWindow()
     ImGui::ShowDemoWindow();
 }
 
+void UI::RenderControls()
+{
+    // Add input password field
+    static char password[64] = "";
+    ImGui::InputText( "Password", password, sizeof( password ), ImGuiInputTextFlags_Password );
+
+    // Get all the available platforms
+    static std::vector<std::string> platforms;
+    static std::vector<std::string> filteredPlatforms;
+
+    // Add "Set seed" button
+    if ( ImGui::Button( "Set seed" ) )
+    {
+        m_passGenerator = std::make_shared<PassGenerator>( password );
+        platforms = m_passGenerator->GetPlatformManager().GetPlatforms();
+        filteredPlatforms = platforms; // Initialize the filtered list
+    }
+
+    // Add platform auto-suggest field
+    static char platform[64] = "";
+
+    // Render InputText and filter the platforms list
+    if ( ImGui::InputText( "##PlatformInput", platform, sizeof( platform ) ) )
+    {
+        filteredPlatforms.clear();
+        for ( const auto& platformItem : platforms )
+        {
+            if ( strncmp( platformItem.c_str(), platform, strlen( platform ) ) == 0 )
+            {
+                filteredPlatforms.push_back( platformItem );
+            }
+        }
+    }
+
+    // Render the filtered combo box
+    if ( ImGui::BeginCombo( "Platform", platform ) )
+    {
+        for ( const auto& filteredPlatform : filteredPlatforms )
+        {
+            if ( ImGui::Selectable( filteredPlatform.c_str() ) )
+            {
+                strcpy( platform, filteredPlatform.c_str() );
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    // Check if the text in the input field is a new platform
+    if ( strlen( platform ) > 0 && std::find( platforms.begin(), platforms.end(), platform ) == platforms.end() && ImGui::Button( "Add Platform" ) )
+    {
+        // Add the new platform to the list
+        platforms.push_back( platform );
+    }
+
+    // add "Generate password" button
+    if (ImGui::Button("Generate password"))
+    {
+        try
+        {
+            if (m_passGenerator)
+            {
+                m_currentPassword = m_passGenerator->GeneratePassword(platform);
+                ImGui::OpenPopup("Password Generated");
+            }
+        }
+        catch (const std::exception& e)
+        {
+            ImGui::OpenPopup("Error");
+        }
+    }
+
+    // Modal for password generated
+    if (ImGui::BeginPopupModal("Password Generated", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Generated password, use \"Copy to clipboard\" button to use it");
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Modal for error
+    if (ImGui::BeginPopupModal("Error", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("An error occurred while generating the password.");
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // add copy to clipboard button
+    if (ImGui::Button("Copy to clipboard"))
+    {
+        // copy to clipboard
+        ImGui::LogToClipboard();
+        ImGui::LogText("%s", m_currentPassword.c_str());
+        ImGui::LogFinish();
+    }
+}
+
 void UI::InitImGui()
 {
     IMGUI_CHECKVERSION();
@@ -87,6 +192,7 @@ void UI::InitImGui()
 
 void UI::ShutdownImGui()
 {
+    ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 }
@@ -135,7 +241,6 @@ void UI::InitOpenGL()
 
 void UI::ShutdownOpenGL()
 {
-
 
 }
 
