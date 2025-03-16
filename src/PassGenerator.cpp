@@ -1,5 +1,6 @@
 #include "PassGenerator.hpp"
 #include <sodium.h>
+#include <set>
 
 #include <stdexcept>
 
@@ -69,4 +70,37 @@ std::vector<unsigned char> PassGenerator::GenerateKey( std::string seed )
     }
 
     return key;
+}
+
+bool PassGenerator::checkPasswordSecurity( const std::string& password )
+{
+    
+
+    return false;
+}
+
+constexpr size_t PassGenerator::calculateAlphabetLength()
+{
+    size_t length = 0;
+    for ( size_t i = 0; i < ALPHABET_GROUPS_COUNT; i++ )
+    {
+        // constexpr length of each group
+        length += sizeof( alphabetGroups[i] );
+    }
+    return length;
+}
+
+
+constexpr char* PassGenerator::combineAlphabetGroups()
+{
+    constexpr size_t alphabetLength = calculateAlphabetLength();
+
+    char tempAlphabet[alphabetLength] = "";
+
+    for ( const auto& group : alphabetGroups )
+    {
+        strcat( tempAlphabet, group );
+    }
+
+    return tempAlphabet;
 }
