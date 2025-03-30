@@ -32,7 +32,7 @@ private:
     void ShutdownOpenGL();
 
 private:
-    static void framebufferSizeCallback( GLFWwindow* window, int width, int height );
+    static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 
 private:
     bool m_closing = false;
