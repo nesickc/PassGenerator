@@ -87,11 +87,10 @@ void PlatformManager::SavePlatforms()
 void PlatformManager::LoadPlatforms() const
 {
     // Read the file
-    std::ifstream inFile(m_platformsFilename, std::ios::binary);
-    if (!inFile)
+    std::ifstream inFile( m_platformsFilename, std::ios::binary );
+    if (!inFile.is_open())
     {
-        std::cout << "file doesn't exist\n";
-        return;
+        return; // file doesn't exist
     }
 
     // Read the nonce

@@ -24,17 +24,42 @@ std::string PassGenerator::GeneratePassword(const std::string& targetName)
 {
     m_platformManager.AddPlatform(targetName);
     std::string password;
-    password.reserve(PASSWORD_SIZE);
-    GeneratePasswordInner(targetName, 0, password);
-
+    for (size_t i = 0; !CheckPasswordSecurity(password); i++)
+    {
+        password = GeneratePasswordImpl(targetName, i);
+    }
+    m_platformManager.AddPlatform(targetName);
     return password;
 }
 
-std::string PassGenerator::GeneratePasswordInner(std::string targetName, size_t nonce, std::string& password) const
+std::vector<unsigned char> PassGenerator::GenerateKey( std::string seed )
 {
-    // adding the nonce to the target name, so that if the password for the targetName is not secure enough,
-    // we can add the nonce and try again
-    targetName += std::to_string(nonce);
+    std::vector<unsigned char> key;
+    key.resize( KEY_SIZE );
+
+    // Hash the password using Argon2id
+    int res = crypto_pwhash(
+        key.data(), key.size(),
+        seed.c_str(), seed.size(),
+        reinterpret_cast<const unsigned char*>(m_salt.c_str()),
+        crypto_pwhash_OPSLIMIT_SENSITIVE,  // Operational cost
+        crypto_pwhash_MEMLIMIT_SENSITIVE,  // Memory cost
+        crypto_pwhash_ALG_ARGON2ID13       // Argon2id variant
+    );
+
+    if ( res != 0 )
+    {
+        throw std::runtime_error( "Password hashing failed" );
+    }
+
+    return key;
+}
+
+std::string PassGenerator::GeneratePasswordImpl(std::string targetName, size_t retry)
+{
+    targetName = targetName + std::to_string(retry);
+    std::string password;
+    password.reserve(PASSWORD_SIZE);
 
     // Hash the target name using Argon2id
     std::vector<unsigned char> targetHash(m_key.size());
@@ -57,82 +82,62 @@ std::string PassGenerator::GeneratePasswordInner(std::string targetName, size_t 
     {
         uint32_t passChar1 = m_key[i] ^ targetHash[i];
         uint32_t passChar2 = m_key[i + 1] ^ targetHash[i + 1];
-        size_t alphabetIndex = (passChar1 + passChar2 + nonce) % m_alphabet.size();
-        password.push_back(m_alphabet[alphabetIndex]);
-    }
-
-    // check if the password is secure enough, i.e. has characters from all the alphabet groups
-    if (!CheckPasswordSecurity(password))
-    {
-        return GeneratePasswordInner(targetName, nonce + 1, password);
+        size_t alphabetIndex = (passChar1 + passChar2) % alphabet.size();
+        password.push_back(alphabet[alphabetIndex]);
     }
 
     return password;
 }
 
-std::vector<unsigned char> PassGenerator::GenerateKey(const std::string& seed) const
+bool PassGenerator::CheckPasswordSecurity( const std::string& password )
 {
-    std::vector<unsigned char> key;
-    key.resize(KEY_SIZE);
+    std::map<const std::string*, bool> groupsUsed;
 
-    // Hash the password using Argon2id
-    int res = crypto_pwhash(
-        key.data(), key.size(),
-        seed.c_str(), seed.size(),
-        reinterpret_cast<const unsigned char*>(m_salt.c_str()),
-        crypto_pwhash_OPSLIMIT_MODERATE,  // Operational cost
-        crypto_pwhash_MEMLIMIT_MODERATE,  // Memory cost
-        crypto_pwhash_ALG_ARGON2ID13       // Argon2id variant
-    );
-
-    if (res != 0)
+    for (const auto& charGroup : alphabetGroups)
     {
-        throw std::runtime_error("Password hashing failed");
+        groupsUsed[&charGroup] = false;
     }
 
-    return key;
-}
-
-bool PassGenerator::CheckPasswordSecurity(const std::string& password) const
-{
-    std::vector<std::pair<std::set<char>, bool>> alphabetGroups;
-    alphabetGroups.resize(ALPHABET_GROUPS.size());
-
-    int counter = 0;
-    for (auto& [set, flag] : alphabetGroups)
+    for (size_t i = 0; i < password.size(); i++)
     {
-        set.insert(ALPHABET_GROUPS[counter].begin(), ALPHABET_GROUPS[counter].end());
-        flag = false;
-    }
-
-    for (char c : password)
-    {
-        for (auto& [set, flag] : alphabetGroups)
+        for (const auto& charGroup : alphabetGroups)
         {
-            if (set.find(c) != set.end())
+            auto pos = std::find(charGroup.begin(), charGroup.end(), password[i]);
+            if (pos != charGroup.end())
             {
-                flag = true;
+                groupsUsed[&charGroup] = true;
             }
         }
     }
 
-    for (auto& [set, flag] : alphabetGroups)
-    {
-        if (!flag)
-        {
-            return false;
-        }
+    bool result = true;
+    for (const auto& [charGroup, used] : groupsUsed) {
+        result &= used;
     }
 
-    return true;
+    return result;
 }
 
-// Combine groups into one compile-time array.
-std::string PassGenerator::combineAlphabetGroups() {
-    std::string alphabet;
+size_t PassGenerator::CalculateAlphabetLength()
+{
+    size_t length = 0;
+    for ( size_t i = 0; i < ALPHABET_GROUPS_COUNT; i++ )
+    {
+        length += alphabetGroups.size();
+    }
+    return length;
+}
 
-    for (size_t i = 0; i < ALPHABET_GROUPS.size(); i++) {
-        alphabet += ALPHABET_GROUPS[i];
+
+std::string PassGenerator::CombineAlphabetGroups()
+{
+    size_t alphabetLength = CalculateAlphabetLength();
+
+    std::string tempAlphabet = "";
+
+    for ( const auto& group : alphabetGroups )
+    {
+        tempAlphabet += group;
     }
 
     return alphabet;
